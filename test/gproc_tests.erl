@@ -18,7 +18,6 @@
 -module(gproc_tests).
 
 -ifdef(TEST).
-
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
@@ -27,11 +26,11 @@
 conf_test_() ->
     {foreach,
      fun() ->
-             application:stop(gproc),
-	     application:unload(gproc)
+         application:stop(gproc),
+         application:unload(gproc)
      end,
      fun(_) ->
-	     application:stop(gproc)
+         application:stop(gproc)
      end,
      [?_test(t_server_opts()),
       ?_test(t_ets_opts())]}.
@@ -52,11 +51,11 @@ t_ets_opts() ->
     ?assert(ok == application:start(gproc)),
     erlang:trace(new, false, [call]),
     receive
-	{trace,_,call,{ets,new,[gproc,Opts]}} ->
-	    ?assertMatch({write_concurrency, false},
-			 lists:keyfind(write_concurrency,1,Opts))
+    {trace,_,call,{ets,new,[gproc,Opts]}} ->
+        ?assertMatch({write_concurrency, false},
+             lists:keyfind(write_concurrency,1,Opts))
     after 3000 ->
-	    error(timeout)
+        error(timeout)
     end.
 
 
@@ -65,11 +64,11 @@ reg_test_() ->
     {setup,
      fun() ->
              application:start(gproc),
-	     application:start(mnesia)
+         application:start(mnesia)
      end,
      fun(_) ->
              application:stop(gproc),
-	     application:stop(mnesia)
+         application:stop(mnesia)
      end,
      [
       {spawn, ?_test(?debugVal(t_simple_reg()))}
@@ -138,6 +137,10 @@ reg_test_() ->
       , ?_test(t_is_clean())
       , {spawn, ?_test(?debugVal(t_subscribe()))}
       , ?_test(t_is_clean())
+      , {spawn, ?_test(?debugVal(t_simple_pool()))}
+      , ?_test(t_is_clean())
+      , {spawn, ?_test(?debugVal(t_join_pool()))}
+      , ?_test(t_is_clean())
       , {spawn, ?_test(?debugVal(t_gproc_info()))}
       , ?_test(t_is_clean())
      ]}.
@@ -158,44 +161,44 @@ t_simple_reg_or_locate() ->
 t_reg_or_locate2() ->
     P = self(),
     {P1,R1} = spawn_monitor(fun() ->
-				    Ref = erlang:monitor(process, P),
-				    gproc:reg({n,l,foo}, the_value),
-				    P ! {self(), ok},
-				    receive
-					{'DOWN',Ref,_,_,_} -> ok
-				    end
-			    end),
+                    Ref = erlang:monitor(process, P),
+                    gproc:reg({n,l,foo}, the_value),
+                    P ! {self(), ok},
+                    receive
+                    {'DOWN',Ref,_,_,_} -> ok
+                    end
+                end),
     receive {P1, ok} -> ok end,
     ?assertMatch({P1, the_value}, gproc:reg_or_locate({n,l,foo})),
     exit(P1, kill),
     receive
-	{'DOWN',R1,_,_,_} ->
-	    ok
+    {'DOWN',R1,_,_,_} ->
+        ok
     end.
 
 t_reg_or_locate3() ->
     P = self(),
     {P1, Value} = gproc:reg_or_locate(
-		     {n,l,foo}, the_value,
-		     fun() ->
-			     P ! {self(), ok},
-			     receive
-				 {'DOWN',_Ref,_,_,_} -> ok
-			     end
-		     end),
+             {n,l,foo}, the_value,
+             fun() ->
+                 P ! {self(), ok},
+                 receive
+                 {'DOWN',_Ref,_,_,_} -> ok
+                 end
+             end),
     ?assert(P =/= P1),
     ?assert(Value =:= the_value),
     _Ref = erlang:monitor(process, P1),
     receive
-	{P1, ok} -> ok;
-	{'DOWN', _Ref, _, _, _Reason} ->
-	    ?assert(process_died_unexpectedly)
+    {P1, ok} -> ok;
+    {'DOWN', _Ref, _, _, _Reason} ->
+        ?assert(process_died_unexpectedly)
     end,
     ?assertMatch({P1, the_value}, gproc:reg_or_locate({n,l,foo})),
     exit(P1, kill),
     receive
-	{'DOWN',_R1,_,_,_} ->
-	    ok
+    {'DOWN',_R1,_,_,_} ->
+        ok
     end.
 
 t_simple_counter() ->
@@ -210,12 +213,12 @@ t_simple_aggr_counter() ->
     ?assert(gproc:get_value({a,l,c1}) =:= 3),
     P = self(),
     P1 = spawn_link(fun() ->
-			    gproc:reg({c,l,c1}, 5),
-			    P ! {self(), ok},
-			    receive
-				{P, goodbye} -> ok
-			    end
-		    end),
+                gproc:reg({c,l,c1}, 5),
+                P ! {self(), ok},
+                receive
+                {P, goodbye} -> ok
+                end
+            end),
     receive {P1, ok} -> ok end,
     ?assert(gproc:get_value({a,l,c1}) =:= 8),
     ?assert(gproc:update_counter({c,l,c1}, 4) =:= 7),
@@ -223,7 +226,7 @@ t_simple_aggr_counter() ->
     P1 ! {self(), goodbye},
     R = erlang:monitor(process, P1),
     receive {'DOWN', R, _, _, _} ->
-	    gproc:audit_process(P1)
+        gproc:audit_process(P1)
     end,
     ?assert(gproc:get_value({a,l,c1}) =:= 7).
 
@@ -233,23 +236,23 @@ t_update_counters() ->
     ?assert(gproc:get_value({a,l,c1}) =:= 3),
     P = self(),
     P1 = spawn_link(fun() ->
-			    gproc:reg({c,l,c1}, 5),
-			    P ! {self(), ok},
-			    receive
-				{P, goodbye} -> ok
-			    end
-		    end),
+                gproc:reg({c,l,c1}, 5),
+                P ! {self(), ok},
+                receive
+                {P, goodbye} -> ok
+                end
+            end),
     receive {P1, ok} -> ok end,
     ?assert(gproc:get_value({a,l,c1}) =:= 8),
     Me = self(),
     ?assertEqual([{{c,l,c1},Me,7},
-		  {{c,l,c1},P1,8}], gproc:update_counters(l, [{{c,l,c1}, Me, 4},
-							      {{c,l,c1}, P1, 3}])),
+          {{c,l,c1},P1,8}], gproc:update_counters(l, [{{c,l,c1}, Me, 4},
+                                  {{c,l,c1}, P1, 3}])),
     ?assert(gproc:get_value({a,l,c1}) =:= 15),
     P1 ! {self(), goodbye},
     R = erlang:monitor(process, P1),
     receive {'DOWN', R, _, _, _} ->
-	    gproc:audit_process(P1)
+        gproc:audit_process(P1)
     end,
     ?assert(gproc:get_value({a,l,c1}) =:= 7).
 
@@ -274,9 +277,9 @@ t_await() ->
     Me = self(),
     {_Pid,Ref} = spawn_monitor(
                    fun() ->
-			   exit(?assert(
-				   gproc:await({n,l,t_await}) =:= {Me,val}))
-		   end),
+               exit(?assert(
+                   gproc:await({n,l,t_await}) =:= {Me,val}))
+           end),
     ?assert(gproc:reg({n,l,t_await},val) =:= true),
     receive
         {'DOWN', Ref, _, _, R} ->
@@ -290,13 +293,13 @@ t_await_self() ->
     Ref = gproc:nb_wait({n, l, t_await_self}),
     ?assert(gproc:reg({n, l, t_await_self}, some_value) =:= true),
     ?assertEqual(true, receive
-			   {gproc, Ref, R, Wh} ->
-			       {registered, {{n, l, t_await_self},
-					     Me, some_value}} = {R, Wh},
-			       true
-		       after 10000 ->
-			       timeout
-		       end).
+               {gproc, Ref, R, Wh} ->
+                   {registered, {{n, l, t_await_self},
+                         Me, some_value}} = {R, Wh},
+                   true
+               after 10000 ->
+                   timeout
+               end).
 
 t_await_crash() ->
     Name = {n,l,{dummy,?LINE}},
@@ -311,9 +314,9 @@ t_await_crash() ->
 
 spawn_regger(Name) ->
     spawn_monitor(fun() ->
-			  gproc:reg(Name),
-			  timer:sleep(60000)
-		  end).
+              gproc:reg(Name),
+              timer:sleep(60000)
+          end).
 
 t_is_clean() ->
     sys:get_status(gproc), % in order to synch
@@ -326,7 +329,7 @@ t_is_clean() ->
 t_simple_mreg() ->
     P = self(),
     ?assertEqual(true, gproc:mreg(n, l, [{foo, foo_val},
-					 {bar, bar_val}])),
+                     {bar, bar_val}])),
     ?assertEqual(P, gproc:where({n,l,foo})),
     ?assertEqual(P, gproc:where({n,l,bar})),
     ?assertEqual(true, gproc:munreg(n, l, [foo, bar])).
@@ -365,17 +368,17 @@ t_cancel_wait_and_register() ->
     Alias = {n, l, foo},
     Me = self(),
     P = spawn(fun() ->
-		      {'EXIT',_} = (catch gproc:await(Alias, 100)),
-		      ?assert(element(1,sys:get_status(gproc)) == status),
-		      Me ! {self(), go_ahead},
-		      timer:sleep(infinity)
-	      end),
+              {'EXIT',_} = (catch gproc:await(Alias, 100)),
+              ?assert(element(1,sys:get_status(gproc)) == status),
+              Me ! {self(), go_ahead},
+              timer:sleep(infinity)
+          end),
     receive
-	{P, go_ahead} ->
-	    ?assertEqual(gproc:reg(Alias, undefined), true),
-	    exit(P, kill),
-	    timer:sleep(500),
-	    ?assert(element(1,sys:get_status(gproc)) == status)
+    {P, go_ahead} ->
+        ?assertEqual(gproc:reg(Alias, undefined), true),
+        exit(P, kill),
+        timer:sleep(500),
+        ?assert(element(1,sys:get_status(gproc)) == status)
     end.
 
 
@@ -436,31 +439,31 @@ t_select() ->
     %% local names
     ?assertEqual(
        [{{n,l,{n,1}},self(),x},
-	{{n,l,{n,2}},self(),y}], gproc:select(
-				   {local,names},
-				   [{{{n,l,'_'},'_','_'},[],['$_']}])),
+    {{n,l,{n,2}},self(),y}], gproc:select(
+                   {local,names},
+                   [{{{n,l,'_'},'_','_'},[],['$_']}])),
     %% mactch local names on value
     ?assertEqual(
        [{{n,l,{n,1}},self(),x}], gproc:select(
-				   {local,names},
-				   [{{{n,l,'_'},'_',x},[],['$_']}])),
+                   {local,names},
+                   [{{{n,l,'_'},'_',x},[],['$_']}])),
     %% match all on value
     ?assertEqual(
        [{{n,l,{n,1}},self(),x},
-	{{p,l,{p,1}},self(),x}], gproc:select(
-				   {all,all},
-				   [{{{'_',l,'_'},'_',x},[],['$_']}])),
+    {{p,l,{p,1}},self(),x}], gproc:select(
+                   {all,all},
+                   [{{{'_',l,'_'},'_',x},[],['$_']}])),
     %% match all on pid
     ?assertEqual(
        [{{a,l,{c,1}},self(),1},
-	{{c,l,{c,1}},self(),1},
-	{{n,l,{n,1}},self(),x},
-	{{n,l,{n,2}},self(),y},
-	{{p,l,{p,1}},self(),x},
-	{{p,l,{p,2}},self(),y}
+    {{c,l,{c,1}},self(),1},
+    {{n,l,{n,1}},self(),x},
+    {{n,l,{n,2}},self(),y},
+    {{p,l,{p,1}},self(),x},
+    {{p,l,{p,2}},self(),y}
        ], gproc:select(
-	    {all,all},
-	    [{{'_',self(),'_'},[],['$_']}])).
+        {all,all},
+        [{{'_',self(),'_'},[],['$_']}])).
 
 t_select_count() ->
     ?assertEqual(true, gproc:reg({n, l, {n,1}}, x)),
@@ -471,16 +474,16 @@ t_select_count() ->
     ?assertEqual(true, gproc:reg({a, l, {c,1}}, undefined)),
     %% local names
     ?assertEqual(2, gproc:select_count(
-		      {local,names}, [{{{n,l,'_'},'_','_'},[],[true]}])),
+              {local,names}, [{{{n,l,'_'},'_','_'},[],[true]}])),
     %% mactch local names on value
     ?assertEqual(1, gproc:select_count(
-		      {local,names}, [{{{n,l,'_'},'_',x},[],[true]}])),
+              {local,names}, [{{{n,l,'_'},'_',x},[],[true]}])),
     %% match all on value
     ?assertEqual(2, gproc:select_count(
-		      {all,all}, [{{{'_',l,'_'},'_',x},[],[true]}])),
+              {all,all}, [{{{'_',l,'_'},'_',x},[],[true]}])),
     %% match all on pid
     ?assertEqual(6, gproc:select_count(
-		      {all,all}, [{{'_',self(),'_'},[],[true]}])).
+              {all,all}, [{{'_',self(),'_'},[],[true]}])).
 
 t_qlc() ->
     ?assertEqual(true, gproc:reg({n, l, {n,1}}, x)),
@@ -491,114 +494,114 @@ t_qlc() ->
     ?assertEqual(true, gproc:reg({a, l, {c,1}}, undefined)),
     %% local names
     Exp1 = [{{n,l,{n,1}},self(),x},
-	    {{n,l,{n,2}},self(),y}],
+        {{n,l,{n,2}},self(),y}],
     ?assertEqual(Exp1,
-		 qlc:e(qlc:q([N || N <- gproc:table(names)]))),
+         qlc:e(qlc:q([N || N <- gproc:table(names)]))),
     ?assertEqual(Exp1,
-		 qlc:e(qlc:q([N || {{n,l,_},_,_} = N <- gproc:table(names)]))),
+         qlc:e(qlc:q([N || {{n,l,_},_,_} = N <- gproc:table(names)]))),
 
     %% mactch local names on value
     Exp2 = [{{n,l,{n,1}},self(),x}],
     ?assertEqual(Exp2,
-		 qlc:e(qlc:q([N || {{n,l,_},_,x} = N <- gproc:table(names)]))),
+         qlc:e(qlc:q([N || {{n,l,_},_,x} = N <- gproc:table(names)]))),
 
     %% match all on value
     Exp3 = [{{n,l,{n,1}},self(),x},
-	    {{p,l,{p,1}},self(),x}],
+        {{p,l,{p,1}},self(),x}],
     ?assertEqual(Exp3,
-		 qlc:e(qlc:q([N || {_,_,x} = N <- gproc:table(all)]))),
+         qlc:e(qlc:q([N || {_,_,x} = N <- gproc:table(all)]))),
 
     %% match all
     Exp4 = [{{a,l,{c,1}},self(),1},
-	    {{c,l,{c,1}},self(),1},
-	    {{n,l,{n,1}},self(),x},
-	    {{n,l,{n,2}},self(),y},
-	    {{p,l,{p,1}},self(),x},
-	    {{p,l,{p,2}},self(),y}
-	   ],
+        {{c,l,{c,1}},self(),1},
+        {{n,l,{n,1}},self(),x},
+        {{n,l,{n,2}},self(),y},
+        {{p,l,{p,1}},self(),x},
+        {{p,l,{p,2}},self(),y}
+       ],
     ?assertEqual(Exp4,
-		 qlc:e(qlc:q([X || X <- gproc:table(all)]))),
+         qlc:e(qlc:q([X || X <- gproc:table(all)]))),
     %% match on pid
     ?assertEqual(Exp4,
-		 qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
-					     gproc:table(all), P =:= self()]))),
+         qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
+                         gproc:table(all), P =:= self()]))),
     ?assertEqual(Exp4,
-		 qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
-					     gproc:table(all), P == self()]))).
+         qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
+                         gproc:table(all), P == self()]))).
 
 t_qlc_dead() ->
     P0 = self(),
     ?assertEqual(true, gproc:reg({n, l, {n,1}}, x)),
     ?assertEqual(true, gproc:reg({p, l, {p,1}}, x)),
     P1 = spawn(fun() ->
-		       Ref = erlang:monitor(process, P0),
-		       gproc:reg({n, l, {n,2}}, y),
-		       gproc:reg({p, l, {p,2}}, y),
-		       P0 ! {self(), ok},
-		       receive
-			   {_P, goodbye} -> ok;
-			   {'DOWN', Ref, _, _, _} ->
-			       ok
-		       end
-	       end),
+               Ref = erlang:monitor(process, P0),
+               gproc:reg({n, l, {n,2}}, y),
+               gproc:reg({p, l, {p,2}}, y),
+               P0 ! {self(), ok},
+               receive
+               {_P, goodbye} -> ok;
+               {'DOWN', Ref, _, _, _} ->
+                   ok
+               end
+           end),
     receive {P1, ok} -> ok end,
     %% now, suspend gproc so it doesn't do cleanup
     try  sys:suspend(gproc),
-	 exit(P1, kill),
-	 %% local names
-	 Exp1 = [{{n,l,{n,1}},self(),x}],
-	 ?assertEqual(Exp1,
-		      qlc:e(qlc:q([N || N <-
-					    gproc:table(names, [check_pids])]))),
-	 ?assertEqual(Exp1,
-		      qlc:e(qlc:q([N || {{n,l,_},_,_} = N <-
-					    gproc:table(names, [check_pids])]))),
-	 %% match local names on value
-	 Exp2 = [{{n,l,{n,1}},self(),x}],
-	 ?assertEqual(Exp2,
-		      qlc:e(qlc:q([N || {{n,l,_},_,x} = N <-
-					    gproc:table(names, [check_pids])]))),
-	 ?assertEqual([],
-		      qlc:e(qlc:q([N || {{n,l,_},_,y} = N <-
-					    gproc:table(names, [check_pids])]))),
-	 %% match all on value
-	 Exp3 = [{{n,l,{n,1}},self(),x},
-		 {{p,l,{p,1}},self(),x}],
-	 ?assertEqual(Exp3,
-		      qlc:e(qlc:q([N || {_,_,x} = N <-
-					    gproc:table(all, [check_pids])]))),
-	 ?assertEqual([],
-		      qlc:e(qlc:q([N || {_,_,y} = N <-
-					    gproc:table(all, [check_pids])]))),
-	 Exp3b = [{{n,l,{n,2}},P1,y},
-		  {{p,l,{p,2}},P1,y}],
-	 ?assertEqual(Exp3b,
-		      qlc:e(qlc:q([N || {_,_,y} = N <-
-					    gproc:table(all)]))),
+     exit(P1, kill),
+     %% local names
+     Exp1 = [{{n,l,{n,1}},self(),x}],
+     ?assertEqual(Exp1,
+              qlc:e(qlc:q([N || N <-
+                        gproc:table(names, [check_pids])]))),
+     ?assertEqual(Exp1,
+              qlc:e(qlc:q([N || {{n,l,_},_,_} = N <-
+                        gproc:table(names, [check_pids])]))),
+     %% match local names on value
+     Exp2 = [{{n,l,{n,1}},self(),x}],
+     ?assertEqual(Exp2,
+              qlc:e(qlc:q([N || {{n,l,_},_,x} = N <-
+                        gproc:table(names, [check_pids])]))),
+     ?assertEqual([],
+              qlc:e(qlc:q([N || {{n,l,_},_,y} = N <-
+                        gproc:table(names, [check_pids])]))),
+     %% match all on value
+     Exp3 = [{{n,l,{n,1}},self(),x},
+         {{p,l,{p,1}},self(),x}],
+     ?assertEqual(Exp3,
+              qlc:e(qlc:q([N || {_,_,x} = N <-
+                        gproc:table(all, [check_pids])]))),
+     ?assertEqual([],
+              qlc:e(qlc:q([N || {_,_,y} = N <-
+                        gproc:table(all, [check_pids])]))),
+     Exp3b = [{{n,l,{n,2}},P1,y},
+          {{p,l,{p,2}},P1,y}],
+     ?assertEqual(Exp3b,
+              qlc:e(qlc:q([N || {_,_,y} = N <-
+                        gproc:table(all)]))),
 
-	 %% match all
-	 Exp4 = [{{n,l,{n,1}},self(),x},
-		 {{p,l,{p,1}},self(),x}],
-	 ?assertEqual(Exp4,
-		      qlc:e(qlc:q([X || X <-
-					    gproc:table(all, [check_pids])]))),
-	 %% match on pid
-	 ?assertEqual(Exp4,
-		 qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
-					     gproc:table(all, [check_pids]),
-					 P =:= self()]))),
-	 ?assertEqual([],
-		 qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
-					     gproc:table(all, [check_pids]),
-					 P =:= P1]))),
-	 Exp4b = [{{n,l,{n,2}},P1,y},
-		  {{p,l,{p,2}},P1,y}],
-	 ?assertEqual(Exp4b,
-		 qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
-					     gproc:table(all),
-					 P =:= P1])))
+     %% match all
+     Exp4 = [{{n,l,{n,1}},self(),x},
+         {{p,l,{p,1}},self(),x}],
+     ?assertEqual(Exp4,
+              qlc:e(qlc:q([X || X <-
+                        gproc:table(all, [check_pids])]))),
+     %% match on pid
+     ?assertEqual(Exp4,
+         qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
+                         gproc:table(all, [check_pids]),
+                     P =:= self()]))),
+     ?assertEqual([],
+         qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
+                         gproc:table(all, [check_pids]),
+                     P =:= P1]))),
+     Exp4b = [{{n,l,{n,2}},P1,y},
+          {{p,l,{p,2}},P1,y}],
+     ?assertEqual(Exp4b,
+         qlc:e(qlc:q([{K,P,V} || {K,P,V} <-
+                         gproc:table(all),
+                     P =:= P1])))
     after
-	sys:resume(gproc)
+    sys:resume(gproc)
     end.
 
 
@@ -618,7 +621,7 @@ t_get_env() ->
     ?assertEqual({atomic,ok}, mnesia:create_table(t, [{ram_copies, [node()]}])),
     ?assertEqual(ok, mnesia:dirty_write({t, foo, bar})),
     ?assertEqual(bar, gproc:get_env(l, gproc, some_env, [{mnesia,transaction,
-							  {t, foo}, 3}])),
+                              {t, foo}, 3}])),
     ?assertEqual("erl", gproc:get_env(l, gproc, progname, [init_arg])).
 
 t_get_set_env() ->
@@ -640,29 +643,29 @@ t_set_env() ->
     ?assertEqual("s1", os:getenv("SSSS")),
     ?assertEqual(true, os:putenv("SSSS", "s0")),
     ?assertEqual([{self(),"s1"}],
-		 gproc:lookup_values({p,l,{gproc_env,gproc,ssss}})),
+         gproc:lookup_values({p,l,{gproc_env,gproc,ssss}})),
     %%
     ?assertEqual({atomic,ok}, mnesia:create_table(t_set_env,
-						  [{ram_copies,[node()]}])),
+                          [{ram_copies,[node()]}])),
     ?assertEqual(ok, mnesia:dirty_write({t_set_env, a, 1})),
     ?assertEqual(2, gproc:set_env(l, gproc, a, 2, [{mnesia,async_dirty,
-						    {t_set_env,a},3}])),
+                            {t_set_env,a},3}])),
     ?assertEqual([{t_set_env,a,2}], mnesia:dirty_read({t_set_env,a})),
     %% non-existing mnesia obj
     ?assertEqual(3, gproc:set_env(l, gproc, b, 3, [{mnesia,async_dirty,
-						    {t_set_env,b},3}])),
+                            {t_set_env,b},3}])),
     ?assertEqual([{t_set_env,b,3}], mnesia:dirty_read({t_set_env,b})).
 
 t_get_env_inherit() ->
     P = spawn_link(fun() ->
-			   ?assertEqual(bar, gproc:set_env(l,gproc,foo,bar,[])),
-			   gproc:reg({n,l,get_env_p}),
-			   t_loop()
-		   end),
+               ?assertEqual(bar, gproc:set_env(l,gproc,foo,bar,[])),
+               gproc:reg({n,l,get_env_p}),
+               t_loop()
+           end),
     ?assertEqual({P,undefined}, gproc:await({n,l,get_env_p},1000)),
     ?assertEqual(bar, gproc:get_env(l, gproc, foo, [{inherit, P}])),
     ?assertEqual(bar, gproc:get_env(l, gproc, foo,
-				    [{inherit, {n,l,get_env_p}}])),
+                    [{inherit, {n,l,get_env_p}}])),
     ?assertEqual(ok, t_lcall(P, die)).
 
 %% What we test here is that we return the same current_function as the
@@ -702,35 +705,35 @@ t4() ->
 t_monitor() ->
     Me = self(),
     P = spawn_link(fun() ->
-			   gproc:reg({n,l,a}),
-			   Me ! continue,
-			   t_loop()
-		   end),
+               gproc:reg({n,l,a}),
+               Me ! continue,
+               t_loop()
+           end),
     receive continue ->
-	    ok
+        ok
     end,
     Ref = gproc:monitor({n,l,a}),
     ?assertEqual(ok, t_lcall(P, die)),
     receive
-	M ->
-	    ?assertEqual({gproc,unreg,Ref,{n,l,a}}, M)
+    M ->
+        ?assertEqual({gproc,unreg,Ref,{n,l,a}}, M)
     end.
 
 t_monitor_give_away() ->
     Me = self(),
     P = spawn_link(fun() ->
-			   gproc:reg({n,l,a}),
-			   Me ! continue,
-			   t_loop()
-		   end),
+               gproc:reg({n,l,a}),
+               Me ! continue,
+               t_loop()
+           end),
     receive continue ->
-	    ok
+        ok
     end,
     Ref = gproc:monitor({n,l,a}),
     ?assertEqual(ok, t_lcall(P, {give_away, {n,l,a}})),
     receive
-	M ->
-	    ?assertEqual({gproc,{migrated,Me},Ref,{n,l,a}}, M)
+    M ->
+        ?assertEqual({gproc,{migrated,Me},Ref,{n,l,a}}, M)
     end,
     ?assertEqual(ok, t_lcall(P, die)).
 
@@ -742,13 +745,13 @@ t_monitor_standby() ->
                       t_loop()
               end),
     receive continue ->
-	    ok
+        ok
     end,
     Ref = gproc:monitor({n,l,a}, standby),
     exit(P, kill),
     receive
-	M ->
-	    ?assertEqual({gproc,{failover,Me},Ref,{n,l,a}}, M)
+    M ->
+        ?assertEqual({gproc,{failover,Me},Ref,{n,l,a}}, M)
     end,
     gproc:unreg({n,l,a}),
     ok.
@@ -775,9 +778,9 @@ t_subscribe() ->
     ?assertEqual(ok, gproc_monitor:subscribe(Key)),
     ?assertEqual({gproc_monitor, Key, undefined}, get_msg()),
     P = spawn_link(fun() ->
-			   gproc:reg({n,l,a}),
-			   t_loop()
-		   end),
+               gproc:reg({n,l,a}),
+               t_loop()
+           end),
     ?assertEqual({gproc_monitor, Key, P}, get_msg()),
     ?assertEqual(ok, t_lcall(P, {give_away, Key})),
     ?assertEqual({gproc_monitor, Key, {migrated,self()}}, get_msg()),
@@ -787,11 +790,162 @@ t_subscribe() ->
     ?assertEqual({gproc_monitor, Key, undefined}, get_msg()),
     ?assertEqual(ok, gproc_monitor:unsubscribe(Key)).
 
+t_simple_pool()->
+    Key = p1w1,
+    From = {n,l,Key},
+    P = spawn_link(fun() ->
+                      t_loop()
+              end),
+    P ! {self(), {reg, From}},
+    receive
+        {_,Registered} ->
+            ?assertEqual(Registered, true)
+    after 5000 ->
+            ?debugFmt("registration timeout ", []),
+            ok
+    end,
+
+    %% create a new pool
+    ?assertEqual(gproc_pool:new(p1), ok),
+
+    %% add a worker to it
+    ?assertEqual(gproc_pool:add_worker(p1,Key) , 1 ),
+    ?assertEqual( length(gproc_pool:worker_pool(p1) ), 1),
+    %% but it should not be active as yet
+    ?assertEqual( length( gproc_pool:active_workers(p1)), 0),
+
+    ?assert( gproc_pool:pick(p1) =:= false ),
+
+    %% connect to make the worker active
+    ?assertEqual(gproc_pool:connect_worker(p1,Key) , true ),
+
+    %% it should be active now
+    ?assertEqual( length( gproc_pool:active_workers(p1)), 1),
+    ?assertEqual( gproc_pool:pick(p1) , {n,l,[gproc_pool,p1,1,Key]}),
+
+    gproc:send(From, {self(), die}),
+    receive
+        {_,Returned}=X ->
+            ?assertEqual(Returned, ok)
+    after 5000 ->
+            %% the next 3 tests should fail if the worker is still alive
+            ok
+    end,
+
+    %% disconnect the worker from the pool.
+    ?assertEqual(gproc_pool:disconnect_worker(p1,Key), true),
+    %%  there should be no active workers now
+    ?assertEqual( length( gproc_pool:active_workers(p1)), 0),
+
+    %% remove the worker from the pool
+    ?assertEqual(gproc_pool:remove_worker(p1,Key), true),
+    %% there should be no workers now
+    %% NOTE: value of worker_pool seems to vary after removing workers
+    %%       sometimes [1,2] , sometimes [1], and then []
+    %%       so relying on defined_workers
+    ?assertEqual( length(gproc_pool:defined_workers(p1)), 0 ),
+    ?assertEqual( length(gproc_pool:worker_pool(p1)), 0 ),
+
+
+    %% should be able to delete the pool now
+    ?assertEqual( gproc_pool:delete(p1), ok).
+
+t_join_pool() ->
+    %% create a new pool
+    Pool = p2,
+    ?assertEqual(gproc_pool:new(Pool), ok),
+    Workers = gproc_pool:test_workers(),
+    lists:map(fun(Key)->
+                      From = {n,l,Key},
+                      P = spawn_link(fun() ->
+                                             t_loop()
+                                     end),
+                      P ! {self(), {reg, From}},
+                      receive
+                          {_,Registered} ->
+                              ?assertEqual(Registered, true)
+                      after 5000 ->
+                              ?debugFmt("registration timeout ", []),
+                              ok
+                      end
+              end, Workers),
+
+
+    lists:foldl(fun(Key,Acc)->
+
+                        %% join_or_locate is the same as the following
+                        %%?assertEqual(gproc_pool:add_worker(Pool,Key) , Acc+1 ),
+                        %%?assertEqual(gproc_pool:connect_worker(Pool,Key) , true ),
+                        %%?assertNotEqual( gproc_pool:pick(Pool), false ),
+
+                        %?debugFmt("joined ~p ? ~p",[Key,gproc_pool:join_or_locate(Pool,Key) ]),
+                        ?assertMatch({X,Y}, gproc_pool:join_or_locate(Pool,Key) ),
+                        Acc+1
+              end, 0, Workers),%++[a,a,b,c]),
+
+    %?debugFmt("added workers~nworker is ~p~nactive is ~p",[ gproc_pool:worker_pool(Pool),gproc_pool:active_workers(Pool)]),
+
+    %% it should be defined
+    ?assertEqual(length(Workers), length(gproc_pool:worker_pool(Pool)) ),
+
+    %% NOTE: this fails!
+    %% ?assertEqual(length(Workers), length(gproc_pool:define_workers(Pool)) ),
+
+    %% it should be active now
+    ?assertEqual(length(Workers), length( gproc_pool:active_workers(Pool))),
+
+    lists:map(fun(Key)->
+                      From = {n,l,Key},
+                      %% NOTE:
+                      %% (A) when the worker is connected
+                      %%       worker_pool shows [{a,1},{b,2},{c,3},{d,4},{e,5}.{f,6}]
+                      %% (B) when the worker is disconnected
+                      %%       worker_pool shows []
+                      %% (C) when the worker is alive, then dies, then disconnected
+                      %%       worker_pool shows [1,2,3,4,5]
+                      %%       at this point subsequent disconnnection removing does not leave a clean state
+
+                      %% to achieve state B kill workers before disconnecting
+                      %% as long as the worker is alive, it will never be cleaned up even on unreg
+                      gproc:send(From, {self(), die}),
+
+                      %% disconnect the worker from the pool.
+                      ?assertEqual(gproc_pool:disconnect_worker(Pool,Key), true),
+
+                      %% remove the worker from the pool
+                      Removed = gproc_pool:remove_worker(Pool,Key),
+                      ?assertEqual(Removed, true)
+              end, Workers),
+
+    %?debugFmt("removed workers~nworker is ~p~nactive is ~p",[ gproc_pool:worker_pool(Pool),gproc_pool:active_workers(Pool) ]),
+
+    %%  there should be no active workers now
+    ?assertEqual( 0, length( gproc_pool:active_workers(Pool))),
+
+    %%  there should be no added workers now
+    %?assertEqual( 0, length(gproc_pool:defined_workers(Pool))),
+
+    %?debugFmt("worker pool is ~p, defined is ~p",[gproc_pool:worker_pool(p1),gproc_pool:defined_workers(p1)]),
+
+    %% there should be no workers now
+    ?assertEqual( false, pool_contains_atleast(Pool,1)),
+
+    %% should be able to delete the pool now
+    ?assertEqual( gproc_pool:delete(Pool), ok).
+
+pool_contains_atleast(Pool,N)->
+    Existing = lists:foldl(fun({X,Y},Acc)->
+                                   Acc+1;
+                              (_,Acc) ->
+                                   Acc
+                           end, 0, gproc_pool:worker_pool(Pool) ),
+    Existing >= N.
+
 get_msg() ->
     receive M ->
-	    M
+        M
     after 1000 ->
-	    timeout
+        timeout
     end.
 
 %% t_spawn()      -> gproc_test_lib:t_spawn(node()).
@@ -804,35 +958,44 @@ got_msg(P)     -> gproc_test_lib:got_msg(P).
 
 t_loop() ->
     receive
-	{From, {give_away, Key}} ->
-	    ?assertEqual(From, gproc:give_away(Key, From)),
-	    From ! {self(), ok},
-	    t_loop();
-	{From, die} ->
-	    From ! {self(), ok}
+    {From, {give_away, Key}} ->
+        ?assertEqual(From, gproc:give_away(Key, From)),
+        From ! {self(), ok},
+        t_loop();
+    {From, {reg, Name}} ->
+        From ! {self(), gproc:reg(Name,undefined)},
+        t_loop();
+    {From, {unreg, Name}} ->
+        ?debugFmt("unreg ~p and return to ~p",[Name,From]),
+        From ! {self(), gproc:unreg(Name)},
+        t_loop();
+    {From, die} ->
+        From ! {self(), ok};
+    _E ->
+        ?debugFmt("dont know what to do with~p",[_E])
     end.
 
 t_lcall(P, Msg) ->
     P ! {self(), Msg},
     receive
-	{P, Reply} ->
-	    Reply
+    {P, Reply} ->
+        Reply
     end.
 
 spawn_helper() ->
     Parent = self(),
     P = spawn(fun() ->
-		      ?assert(gproc:reg({n,l,self()}) =:= true),
-		      Ref = erlang:monitor(process, Parent),
-		      Parent ! {ok,self()},
-		      receive
-			  {'DOWN', Ref, _, _, _} ->
-			      ok
-		      end
-	      end),
+              ?assert(gproc:reg({n,l,self()}) =:= true),
+              Ref = erlang:monitor(process, Parent),
+              Parent ! {ok,self()},
+              receive
+              {'DOWN', Ref, _, _, _} ->
+                  ok
+              end
+          end),
     receive
-	{ok,P} ->
-	     P
+    {ok,P} ->
+         P
     end.
 
 give_gproc_some_time(T) ->
