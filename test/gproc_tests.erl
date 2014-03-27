@@ -142,6 +142,8 @@ reg_test_() ->
       , ?_test(t_is_clean())
       , {spawn, ?_test(?debugVal(t_simple_pool()))}
       , ?_test(t_is_clean())
+      , {spawn, ?_test(?debugVal(t_check_for_worker_pool_leaks()))}
+      , ?_test(t_is_clean())
      ]}.
 
 t_simple_reg() ->
@@ -847,6 +849,49 @@ t_simple_pool()->
 
     %% should be able to delete the pool now
     ?assertEqual( gproc_pool:delete(p1), ok).
+
+t_check_for_worker_pool_leaks()->
+   AddAndConnect = fun(P,W)-> spawn_link(fun()-> 
+	 t_loop() end) end,
+   Pool = p3, Workers = [w1,w2],
+   gproc_pool:new(Pool),
+
+   [ begin 
+	From = {n,l,Worker},
+	P = AddAndConnect(Pool, Worker),
+	P ! {self(), {reg, From}},
+	%gproc:send({n,l,Worker},{self(),{reg,{n,l,Worker}}}),
+	gproc_pool:add_worker(Pool,Worker), gproc_pool:connect_worker(Pool,Worker)
+     end || Worker <- Workers],
+
+   ?assertEqual( 2, length(gproc_pool:worker_pool(Pool))),
+
+   [ begin
+    gproc:send({n,l,Worker}, {self(),{unreg,{n,l,Worker}}}),
+    gproc:send({n,l,Worker}, {self(),die}),
+    gproc_pool:disconnect_worker(Pool,Worker),
+    gproc_pool:remove_worker(Pool,Worker)
+     end || Worker <- Workers],
+
+   %% when a worker is disconnected [{w1,1},{w2,2}] becomes [{w1,1}]
+   %% when the last worker is disconnected pool becomes [1]
+   %% passes
+   ?assertEqual( false, pool_contains_atleast(Pool,1)),
+
+   %% but shouldnt  this be [] ?
+   %% fails
+   ?debugFmt("Testing possible leak in worker_pool. Comment the next test to continue as usual",[]),
+   ?assertEqual( 0, length(gproc_pool:worker_pool(Pool)) ),
+
+   ?assertEqual( ok, gproc_pool:delete(Pool) ).
+
+pool_contains_atleast(Pool,N)->
+    Existing = lists:foldl(fun({X,Y},Acc)->
+                                   Acc+1;
+                              (_,Acc) ->
+                                   Acc
+                           end, 0, gproc_pool:worker_pool(Pool) ),
+    Existing >= N.
 
 get_msg() ->
     receive M ->
